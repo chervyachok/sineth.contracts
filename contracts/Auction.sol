@@ -335,6 +335,45 @@ contract Auction {
         }        
     }
 
+    function close(uint32 lotId, Result memory finalResult, bytes calldata signature) public { 
+        Lot storage lot = lots[lotId];
+        
+        address recipient;
+
+        if (lot.participants == 0) {
+            recipient = lot.creator;
+            lot.winner = address(1);
+        } else {
+            if (chainId == sapphireChainId) {
+                verify(abi.encode(finalResult), signature);
+            }
+            require(lotId == finalResult.lotId, 'Lot id not match');
+            require(lot.creator > address(0), 'Auction not found');
+            require(lot.winner == address(0), 'Auction completed');
+
+            if (finalResult.winner > address(0)) {
+                if (lot.completeTs + revealDuration < block.timestamp) {
+                    recipient = lot.creator;
+                    lot.winner = address(1);
+                } else {
+                    recipient = finalResult.winner;
+                    lot.winner = recipient;
+                    lot.winBid = finalResult.lastBid * lot.bidStep;
+                    token.transfer(recipient, lot.creator, finalResult.lastBid * lot.bidStep);    
+                }
+            } else { 
+                require(finalResult.lastBid == lot.highBid, 'Computation not completed');
+                recipient = lot.creator;
+                lot.winner = address(1);
+            } 
+        }
+        
+        lot.closeTs = uint32(block.timestamp);
+            
+        emit Close(lotId);       
+    }    
+    event Close(uint32 indexed lotId);
+
     function _sign(bytes memory data) internal view returns (bytes memory) {
         return Sapphire.sign(Sapphire.SigningAlg.Secp256k1PrehashedKeccak256, privateKey, abi.encode(keccak256(data)), "");
     }
@@ -342,4 +381,6 @@ contract Auction {
     function verify(bytes memory data, bytes memory signature) public view {        
         require(Sapphire.verify(Sapphire.SigningAlg.Secp256k1PrehashedKeccak256, publicKey, abi.encode(keccak256(data)), "", signature), "Sign not valid");
     }
+
+
 }
