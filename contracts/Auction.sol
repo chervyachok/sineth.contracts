@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: none
 pragma solidity ^0.8.19;
 
-
 import "@oasisprotocol/sapphire-contracts/contracts/EthereumUtils.sol";
 import "@oasisprotocol/sapphire-contracts/contracts/Sapphire.sol";
 import { BidToken } from "./BidToken.sol";
-
-import "hardhat/console.sol";
 
 interface IERC721 {
     function transferFrom(address from, address to, uint256 tokenId) external;
@@ -50,7 +47,6 @@ contract Auction {
     bytes private publicKey;
     bytes private privateKey;
     
-
     // --------------------- CONSTRUCT ---------------------    
 
     constructor (
@@ -74,7 +70,6 @@ contract Auction {
     }
         
     function start(uint128 bidStep, uint32 duration) public {    
-        //IERC721(asset).transferFrom(msg.sender, address(this), assetId);
         lotIdx ++; 
         lots[lotIdx] = Lot({
             creator: msg.sender,
@@ -124,7 +119,7 @@ contract Auction {
             uint256 locked, 
             BidToken.Lock[] memory list
         ) {
-        console.log('accountData', msg.sender);
+        
         return token.data(msg.sender);
     }
 
@@ -133,9 +128,7 @@ contract Auction {
     }
 
     function isClosed(uint32 lotId) public view returns (bool state) {
-        state = lots[lotId].completeTs + revealDuration <= block.timestamp || lots[lotId].closeTs > 0;
-        console.log('state', state);
-        return state;
+        return lots[lotId].completeTs + revealDuration <= block.timestamp || lots[lotId].closeTs > 0;
     }
 
     function deposit() public payable {
@@ -199,7 +192,7 @@ contract Auction {
 
         emit Place(lotId); 
         uint128 lockAmount = highBid * lot.bidStep;
-        console.log('lockAmount', lockAmount, fee);
+        
         token.lock(msg.sender, lotId, lockAmount); 
         token.transfer(msg.sender, serviceWallet, fee);   
     }
@@ -240,7 +233,6 @@ contract Auction {
                 
         uint16 bidsLeft = maxBids - startBid + 1;        
         uint16 lastBid = bidsLeft > maxComputeBids ?  startBid + maxComputeBids - 1 : maxBids;      
-        console.log('---', startBid, lastBid, bidsLeft);
 
         uint32 lotId_ = lotId;
         for (uint16 currBid = startBid; currBid <= lastBid;) {
@@ -287,7 +279,6 @@ contract Auction {
 
         require(lot.participants > 0, "No participants");
         
-        console.log('prevSignature.length', prevSignature.length);
         if (prevSignature.length > 1) {
             if (chainId == sapphireChainId) {
                 verify(prevResultData, prevSignature);
@@ -303,15 +294,14 @@ contract Auction {
         }
         
         uint16 bidsLeft = (lot.highBid - startBid) + 1;
-        console.log('bidsLeft', bidsLeft);
+        
         uint16 lastBid = bidsLeft > maxComputeBids ? startBid * maxComputeBids : lot.highBid;      
-        console.log('bidsLeft', lastBid);
+        
 
         if (lot.participants > 0){
             for (uint16 currBid = startBid; currBid <= lastBid; ) {
                 address state = bids[lotId][currBid];
                 if (state > address(1)) {
-                    console.log('winner', state, currBid);
                     prevResult.winner = state;
                     lastBid = currBid;
                     break;
