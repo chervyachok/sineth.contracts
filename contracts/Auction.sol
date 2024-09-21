@@ -205,5 +205,68 @@ contract Auction {
     }
     event Join(uint32 indexed lotId);
     event Place(uint32 indexed lotId);    
+
+    struct UniquenessResult {  
+        uint32 lotId;
+        uint16 lastBid;  
+        bool account;
+        bool lot;        
+    }
+
+    function checkUniqueness(uint32 lotId, bytes memory prevResultData) public view returns (bytes memory newResultData, bool completed){
+        Lot memory lot = lots[lotId];
+
+        require(lot.participants > 0, "No participants");
+        
+        uint16 startBid;
+        
+        UniquenessResult memory newResult;
+        UniquenessResult memory prevResult;
+        {
+            if (prevResultData.length > 1) {            
+                if (chainId == sapphireChainId) {
+                    bytes memory decrypted = Sapphire.decrypt(bytes32(privateKey), lot.nonce, prevResultData, "");
+                    prevResult = abi.decode(decrypted, (UniquenessResult));   
+                } else {
+                    prevResult = abi.decode(prevResultData, (UniquenessResult)); 
+                }
+                require(prevResult.lotId == lotId, 'Wrong lot id');
+                startBid = prevResult.lastBid + 1;
+            } else {
+                startBid = 1;
+                prevResult.lotId = lotId;
+            }    
+        }
+                
+        uint16 bidsLeft = maxBids - startBid + 1;        
+        uint16 lastBid = bidsLeft > maxComputeBids ?  startBid + maxComputeBids - 1 : maxBids;      
+        console.log('---', startBid, lastBid, bidsLeft);
+
+        uint32 lotId_ = lotId;
+        for (uint16 currBid = startBid; currBid <= lastBid;) {
+            address state = bids[lotId_][currBid];
+            if (state > address(1)) {
+                prevResult.lot = true;
+                if (state == msg.sender) {
+                    prevResult.account = true;
+                }               
+            }
+            unchecked {
+                currBid ++;  
+            }
+        }   
+        
+        newResult = prevResult;
+        newResult.lastBid = lastBid;
+        newResultData = abi.encode(newResult);
+
+        completed = (lastBid == maxBids);
+        
+        if (chainId == sapphireChainId) {
+            if (!completed) {
+                newResultData = Sapphire.encrypt(bytes32(privateKey), lot.nonce, newResultData, "");
+            }
+        }         
+    }
     
 }
