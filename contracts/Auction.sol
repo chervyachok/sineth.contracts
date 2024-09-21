@@ -269,4 +269,77 @@ contract Auction {
         }         
     }
     
+    struct Result {  
+        uint32 lotId;
+        uint16 lastBid;  
+        address winner;        
+    }
+
+    function computeResult(uint32 lotId, bytes memory prevResultData, bytes memory prevSignature) public view returns (bytes memory newResultData, bytes memory newSignature, bool completed){
+        Lot memory lot = lots[lotId];
+
+        require(lot.participants > 0, "No participants");
+        require(lot.completeTs < block.timestamp, 'Not completed');
+        
+        uint16 startBid;
+        Result memory prevResult;
+        Result memory newResult;
+
+        require(lot.participants > 0, "No participants");
+        
+        console.log('prevSignature.length', prevSignature.length);
+        if (prevSignature.length > 1) {
+            if (chainId == sapphireChainId) {
+                verify(prevResultData, prevSignature);
+            } 
+            prevResult = abi.decode(prevResultData, (Result));
+            
+            require(prevResult.winner == address(0), 'Winner determined');
+            require(prevResult.lotId == lotId, 'Wrong lot id');
+            startBid = prevResult.lastBid + 1;
+        } else {
+            startBid = 1;
+            prevResult.lotId = lotId;
+        }
+        
+        uint16 bidsLeft = (lot.highBid - startBid) + 1;
+        console.log('bidsLeft', bidsLeft);
+        uint16 lastBid = bidsLeft > maxComputeBids ? startBid * maxComputeBids : lot.highBid;      
+        console.log('bidsLeft', lastBid);
+
+        if (lot.participants > 0){
+            for (uint16 currBid = startBid; currBid <= lastBid; ) {
+                address state = bids[lotId][currBid];
+                if (state > address(1)) {
+                    console.log('winner', state, currBid);
+                    prevResult.winner = state;
+                    lastBid = currBid;
+                    break;
+                } else {
+                    unchecked {
+                        currBid ++;
+                    }          
+                }            
+            }
+        }
+        
+        prevResult.lastBid = lastBid;
+        newResult = prevResult;
+        newResultData = abi.encode(newResult);
+        completed = (lastBid == maxBids || prevResult.winner > address(1));
+
+        if (chainId == sapphireChainId) {
+            newSignature = _sign(newResultData);
+        } else {
+            newSignature = bytes('11111111');
+        }        
+    }
+
+    function _sign(bytes memory data) internal view returns (bytes memory) {
+        return Sapphire.sign(Sapphire.SigningAlg.Secp256k1PrehashedKeccak256, privateKey, abi.encode(keccak256(data)), "");
+    }
+
+    function verify(bytes memory data, bytes memory signature) public view {        
+        require(Sapphire.verify(Sapphire.SigningAlg.Secp256k1PrehashedKeccak256, publicKey, abi.encode(keccak256(data)), "", signature), "Sign not valid");
+    }
 }
