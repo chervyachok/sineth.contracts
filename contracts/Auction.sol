@@ -5,10 +5,6 @@ import "@oasisprotocol/sapphire-contracts/contracts/EthereumUtils.sol";
 import "@oasisprotocol/sapphire-contracts/contracts/Sapphire.sol";
 import { BidToken } from "./BidToken.sol";
 
-interface IERC721 {
-    function transferFrom(address from, address to, uint256 tokenId) external;
-}
-
 contract Auction {   
     BidToken public immutable token;  
 
@@ -46,8 +42,6 @@ contract Auction {
    
     bytes private publicKey;
     bytes private privateKey;
-    
-    // --------------------- CONSTRUCT ---------------------    
 
     constructor (
         address serviceWallet_, 
@@ -150,7 +144,7 @@ contract Auction {
         uint32 lotId;
         uint16[] bids;
     }
-    // if called without wrapper lotId is exposed but we still encrypt bid amounts for case if user not use provider wrapper
+    
     function placeBids(uint32 lotId, uint16[] calldata bidIndexes) public {  
         Lot storage lot = lots[lotId];
 
@@ -206,7 +200,9 @@ contract Auction {
         bool lot;        
     }
 
-    function checkUniqueness(uint32 lotId, bytes memory prevResultData) public view returns (bytes memory newResultData, bool completed){
+    function checkUniqueness(uint32 lotId, bytes memory prevResultData) public view 
+        returns (bytes memory newResultData, bool completed)
+        {
         Lot memory lot = lots[lotId];
 
         require(lot.participants > 0, "No participants");
@@ -267,7 +263,9 @@ contract Auction {
         address winner;        
     }
 
-    function computeResult(uint32 lotId, bytes memory prevResultData, bytes memory prevSignature) public view returns (bytes memory newResultData, bytes memory newSignature, bool completed){
+    function computeResult(uint32 lotId, bytes memory prevResultData, bytes memory prevSignature) public view 
+        returns (bytes memory newResultData, bytes memory newSignature, bool completed)
+        {
         Lot memory lot = lots[lotId];
 
         require(lot.participants > 0, "No participants");
